@@ -11,14 +11,18 @@ export default function Navigation() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const handleScroll = () => {
       setScrolled(window.scrollY > 100);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  if (!mounted) return null;
 
   return (
     <header className={`fixed top-8 left-1/2 -translate-x-1/2 z-50 w-[80%] max-w-[1920px] transition-all duration-400 ease-out rounded-2xl border border-white/20 shadow-lg overflow-hidden ${scrolled ? 'bg-white/40 backdrop-blur-md py-1' : 'bg-white/20 backdrop-blur-sm py-2'}`}>
