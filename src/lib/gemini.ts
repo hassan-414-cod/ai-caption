@@ -3,11 +3,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 let aiClient: GoogleGenAI | null = null;
 function getAi() {
   if (!aiClient) {
-    aiClient = new GoogleGenAI({ 
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const config: any = { 
       vertexai: true,
       project: process.env.GOOGLE_CLOUD_PROJECT || 'gen-lang-client-0608385316', 
       location: 'us-central1' 
-    });
+    };
+
+    if (serviceAccountVar) {
+      try {
+        config.credentials = JSON.parse(serviceAccountVar);
+      } catch (e) {
+        console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT for Gemini:", e);
+      }
+    }
+
+    aiClient = new GoogleGenAI(config);
   }
   return aiClient;
 }
