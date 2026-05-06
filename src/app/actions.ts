@@ -71,35 +71,45 @@ export async function getUserDashboardStats(idToken: string) {
 }
 
 export async function generateAndSaveCaptionAction(idToken: string, params: CaptionGenerationParams, base64Image?: string, mimeType?: string) {
-  const user = await verifyUser(idToken);
-  
-  // Check rate limits for free tier
-  const stats = await getUserDashboardStats(idToken);
-  const profile = await getUserProfile(idToken);
-  if (profile?.plan === 'free' && stats.generationsToday >= 5) {
-    throw new Error("You've reached your daily limit of 5 generations on the free plan.");
+  try {
+    const user = await verifyUser(idToken);
+    
+    // Check rate limits for free tier
+    const stats = await getUserDashboardStats(idToken);
+    const profile = await getUserProfile(idToken);
+    if (profile?.plan === 'free' && stats.generationsToday >= 5) {
+      return { error: "You've reached your daily limit of 5 generations on the free plan." };
+    }
+    
+    // Optional Image processing
+    if (base64Image && mimeType) {
+      params.imageDescription = await describeImageContext(base64Image, mimeType);
+    }
+    
+    // Call Gemini (Vertex AI via service account)
+    const result = await generateCaptions(params);
+    
+    // Save to Firestore
+    const newRef = adminDb.collection('generations').doc();
+    await newRef.set({
+      userId: user.uid,
+      prompt: params.description,
+      platform: params.platform,
+      variants: Object.values(result.variants),
+      hashtags: result.hashtags,
+      createdAt: FieldValue.serverTimestamp()
+    });
+    
+    return { id: newRef.id, variants: Object.values(result.variants), hashtags: result.hashtags };
+  } catch (error: any) {
+    console.error('Action Error:', error);
+    // Extract a cleaner message for the UI
+    const message = error.message || String(error);
+    if (message.includes('permission_denied') || message.includes('403')) {
+      return { error: "AI Permission Denied: Please check if Agent Platform API is enabled in Google Cloud and FIREBASE_SERVICE_ACCOUNT is set in Vercel." };
+    }
+    return { error: message };
   }
-  
-  // Optional Image processing
-  if (base64Image && mimeType) {
-    params.imageDescription = await describeImageContext(base64Image, mimeType);
-  }
-  
-  // Call Gemini (Vertex AI via service account)
-  const result = await generateCaptions(params);
-  
-  // Save to Firestore
-  const newRef = adminDb.collection('generations').doc();
-  await newRef.set({
-    userId: user.uid,
-    prompt: params.description,
-    platform: params.platform,
-    variants: Object.values(result.variants),
-    hashtags: result.hashtags,
-    createdAt: FieldValue.serverTimestamp()
-  });
-  
-  return { id: newRef.id, variants: Object.values(result.variants), hashtags: result.hashtags };
 }
 
 export async function getLibraryGenerations(idToken: string) {

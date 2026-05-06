@@ -102,6 +102,12 @@ export default function Generator() {
         imageFile?.type
       );
 
+      if (resultData.error) {
+        toast.error(resultData.error);
+        setIsGenerating(false);
+        return;
+      }
+
       const genResult: GeneratedResult = {
         variants: {
           direct: resultData.variants[0],
